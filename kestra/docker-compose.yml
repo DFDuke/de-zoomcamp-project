@@ -41,6 +41,8 @@ services:
             username: kestra
             password: k3str4
         kestra:
+          tutorialFlows:
+            enabled: false # true by default
           server:
             basicAuth:
               enabled: false
@@ -54,8 +56,6 @@ services:
               basePath: "/app/storage"
           queue:
             type: postgres
-          # tutorialFlows:
-          #   enabled: false # true by default
           tasks:
             tmpDir:
               path: /tmp/kestra-wd/tmp
