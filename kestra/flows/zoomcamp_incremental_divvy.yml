@@ -1,0 +1,142 @@
+id: incremental_divvy
+namespace: zoomcamp
+
+
+variables:
+  # file: "202501-divvy-tripdata"
+  file: "{{ trigger.date | date('yyyyMM') }}-divvy-tripdata"
+  gcs_file: "gs://{{kv('GCP_BUCKET_NAME')}}/{{vars.file}}.csv"
+  # bq_table: "divvy_tripdata_202501"
+  bq_table: "divvy_tripdata_{{ trigger.date | date('yyyyMM') }}"
+  
+
+tasks:
+  - id: set_label
+    type: io.kestra.plugin.core.execution.Labels
+    labels: 
+      - key: "trigger_date"
+        value: "{{ trigger.date | date('yyyyMM') }}"
+        # value: "202501"
+
+  - id: hello
+    type: io.kestra.plugin.core.log.Log
+    message: "{{ vars.file }}"
+
+  - id: get_zipfile
+    type: io.kestra.plugin.core.http.Download
+    uri: https://divvy-tripdata.s3.amazonaws.com/{{ render(vars.file) }}.zip
+
+  - id: unzip
+    type: io.kestra.plugin.compress.ArchiveDecompress
+    algorithm: ZIP
+    from: "{{ outputs.get_zipfile.uri }}"
+
+  - id: for_each
+    type: io.kestra.plugin.core.flow.ForEach
+    values: "{{ outputs.unzip.files | keys }}"
+    tasks:
+    
+      # SIDE EFFECT OF ZIP ARCHIVES CONTAINING __MACOSX DIRECTORY...
+      - id: if_not_MACOSX
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{taskrun.value | startsWith(render(vars.file)) }}"
+        then:
+        
+        - id: upload_to_gcs
+          type: io.kestra.plugin.gcp.gcs.Upload
+          from: "{{ outputs.unzip.files[parent.taskrun.value] }}"
+          to: "{{ render(vars.gcs_file) }}"
+
+  - id: bq_divvy_table_ext
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE EXTERNAL TABLE `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.{{render(vars.bq_table)}}_ext`
+      (
+        ride_id STRING,
+        rideable_type STRING,
+        started_at TIMESTAMP,
+        ended_at TIMESTAMP,
+        start_station_name STRING,
+        start_station_id STRING,
+        end_station_name STRING,
+        end_station_id STRING,
+        start_lat FLOAT64,
+        start_lng FLOAT64,
+        end_lat FLOAT64,
+        end_lng FLOAT64,
+        member_casual STRING
+      )
+      OPTIONS (
+        format = 'csv',
+        uris = ['{{render(vars.gcs_file)}}'],
+        skip_leading_rows = 1, 
+        ignore_unknown_values = TRUE
+      );
+    
+  - id: bq_divvy_table_tmp
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE TABLE `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.{{render(vars.bq_table)}}` 
+      AS
+      SELECT
+        MD5(CONCAT(
+          COALESCE(CAST(ride_id AS STRING), ""),
+          COALESCE(CAST(started_at AS STRING), ""),
+          COALESCE(CAST(ended_at AS STRING), ""),
+          COALESCE(CAST(start_station_id AS STRING), ""),
+          COALESCE(CAST(end_station_id AS STRING), "")
+        )) AS unique_row_id,
+        "{{render(vars.gcs_file)}}" AS filename,
+        *
+      FROM `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.{{render(vars.bq_table)}}_ext`;
+
+  - id: bq_divvy_table
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE TABLE IF NOT EXISTS `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.divvy_tripdata`
+      (
+        unique_row_id BYTES,
+        filename STRING,
+        ride_id STRING,
+        rideable_type STRING,
+        started_at TIMESTAMP,
+        ended_at TIMESTAMP,
+        start_station_name STRING,
+        start_station_id STRING,
+        end_station_name STRING,
+        end_station_id STRING,
+        start_lat FLOAT64,
+        start_lng FLOAT64,
+        end_lat FLOAT64,
+        end_lng FLOAT64,
+        member_casual STRING
+      )
+      PARTITION BY DATE(started_at);
+    
+  - id: bq_divvy_merge
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      MERGE INTO `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.divvy_tripdata` tgt
+      USING `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.{{render(vars.bq_table)}}` src
+      ON tgt.unique_row_id = src.unique_row_id
+      WHEN NOT MATCHED THEN
+        INSERT (unique_row_id, filename, ride_id, rideable_type, started_at, ended_at, start_station_name, start_station_id, end_station_name, end_station_id, start_lat, start_lng, end_lat, end_lng, member_casual)
+        VALUES (src.unique_row_id, src.filename, src.ride_id, src.rideable_type, src.started_at, src.ended_at, src.start_station_name, src.start_station_id, src.end_station_name, src.end_station_id, src.start_lat, src.start_lng, src.end_lat, src.end_lng, src.member_casual);
+
+  - id: purge_files
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+    disabled: true
+
+pluginDefaults:
+- type: io.kestra.plugin.gcp
+  values:
+    serviceAccount: "{{kv('GCP_CREDS')}}"
+    projectId: "{{kv('GCP_PROJECT_ID')}}"
+    location: "{{kv('GCP_LOCATION')}}"
+    bucket: "{{kv('GCP_BUCKET_NAME')}}"
+
+
+triggers:
+  - id: schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 9 1 * *"
