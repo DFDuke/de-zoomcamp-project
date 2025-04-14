@@ -11,17 +11,12 @@ variable "project" {
 
 variable "region" {
   description = "Region"
-  default     = "us-central1"
+  default     = "us-east5"
 }
 
 variable "location" {
   description = "Project location"
   default     = "US"
-}
-
-variable "bq_dataset_name" {
-  description = "My BigQuery Dataset Name"
-  default     = "divvy_dataset"
 }
 
 variable "gcs_bucket_name" {
@@ -32,4 +27,9 @@ variable "gcs_bucket_name" {
 variable "gcs_storage_class" {
   description = "Bucket Storage Class"
   default     = "STANDARD"
+}
+
+variable "bq_dataset_name" {
+  description = "My BigQuery Dataset Name"
+  default     = "divvy_dataset"
 }
