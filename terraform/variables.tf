@@ -21,12 +21,12 @@ variable "location" {
 
 variable "bq_dataset_name" {
   description = "My BigQuery Dataset Name"
-  default     = "demo_dataset"
+  default     = "divvy_dataset"
 }
 
 variable "gcs_bucket_name" {
   description = "My GCS Bucket Name"
-  default     = "de-zoomcamp-project-455400-terra-bucket"
+  default     = " de-zoomcamp-project-455400-divvy-bucket"
 }
 
 variable "gcs_storage_class" {
