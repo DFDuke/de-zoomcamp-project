@@ -6,13 +6,14 @@
 https://github.com/pyenv/pyenv
 
 
-
 2. 
 
 Technologies:
 - **Cloud** - GCP
 - **Infrastructure as Code** - Terraform
-- **Workflow Orchestration:** Airflow / Kestra - TBD
+- **Workflow Orchestration:** Kestra
+Kestra has proven to be over-complicated for what I need to accomplish. It seems to fundamentally operate around an expectation of single input and output files. I've run into this issue with two different datasets now (citi-bike-nyc [https://citibikenyc.com/system-data] and divvy bikes [https://divvybikes.com/system-data]) where the zip archives contains multiple files and hit a roadblock trying to process these files. While the object is called outputFiles, I cannot find a single example in the documentation that demonstrates references more than one at a time.
+What I was able to script in 30 minutes, has taken days with no solution in site. Reverted to using a simple shell script to extract my data.
 - **Date Warehouse:** Big Query
 - **Batch Processing:** Spark/Flink
 
