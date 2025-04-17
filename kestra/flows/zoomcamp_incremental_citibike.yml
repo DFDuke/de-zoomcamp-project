@@ -1,0 +1,194 @@
+id: incremental_citibike
+namespace: zoomcamp
+
+# https://s3.amazonaws.com/tripdata/JC-202101-citibike-tripdata.csv.zip
+variables:
+  # file: "JC-202101-citibike-tripdata"
+  # triggerDate: '202102'
+  triggerDate: "{{ trigger.date | date('yyyyMM') }}"
+
+  file_id: "{{ vars.triggerDate }}-citibike-tripdata"
+  csv_file: "JC-{{ render(vars.file_id) }}.csv"
+  gcs_file: "{{ render(vars.file_id) }}.csv"
+  # gcs_fullpath: "gs://{{ kv('GCP_CITIBIKE_BUCKET') }}/{{ render(vars.file_id) }}.parquet"
+  gcs_fullpath: "gs://de-zoomcamp-project-455400-citibike-bucket/raw"
+  # bq_table: "citibike_tripdata_{{ vars.triggerDate }}"
+  bq_table: "{{ kv('GCP_CITIBIKE_TABLE') }}_{{ vars.triggerDate }}"
+
+  
+
+tasks:
+  - id: set_label
+    type: io.kestra.plugin.core.execution.Labels
+    labels: 
+      - key: "trigger_date"
+        value: "{{ render(vars.triggerDate) }}"
+
+  - id: log_file_id
+    type: io.kestra.plugin.core.log.Log
+    message: "{{ render(vars.file_id) }}"
+
+  # DOWNLOAD ZIP FILE
+  - id: get_zipfile
+    type: io.kestra.plugin.core.http.Download
+    uri: https://s3.amazonaws.com/tripdata/{{ render(vars.csv_file) }}.zip
+
+  # UNZIP ZIP FILE
+  - id: unzip
+    type: io.kestra.plugin.compress.ArchiveDecompress
+    algorithm: ZIP
+    from: "{{ outputs.get_zipfile.uri }}"
+
+  # ITERATE THROUGH EACH FILE THAT WAS DECOMPRESSED
+  - id: for_each
+    type: io.kestra.plugin.core.flow.ForEach
+    values: "{{ outputs.unzip.files | keys }}"
+    tasks:
+      
+      - id: log_taskrun
+        type: io.kestra.plugin.core.log.Log
+        # message: "{{ taskrun.value }}"
+        message: "{{ taskrun }}"
+
+      # CHECK IF THE FILE STARTS WITH EXPECTED FILENAME
+      # SIDE EFFECT OF ZIP ARCHIVES CONTAINING __MACOSX DIRECTORY...
+      - id: if_not_MACOSX
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{ taskrun.value | startsWith(render(vars.csv_file)) }}"
+        then:
+        
+        - id: log_inner_taskrun
+          type: io.kestra.plugin.core.log.Log
+          # message: "{{ parent.taskrun.value }}"
+          message: "{{ parent.taskrun }}"
+
+        - id: log_parquet_input
+          type: io.kestra.plugin.core.log.Log
+          message: "{{ outputs.unzip.files[parent.taskrun.value] }}"
+
+        - id: upload_csv_to_gcs
+          type: io.kestra.plugin.gcp.gcs.Upload
+          # disabled: true
+          from: "{{ outputs.unzip.files[parent.taskrun.value] }}"
+          to: "{{ render(vars.gcs_fullpath) }}/{{ render(vars.file_id) }}.csv"
+          
+        - id: parquet_output
+          type: io.kestra.plugin.scripts.python.Script
+          disabled: true
+          warningOnStdErr: false
+          taskRunner:
+            type: io.kestra.plugin.scripts.runner.docker.Docker
+          containerImage: ghcr.io/kestra-io/pydata:latest
+          env:
+            FILE_ID: "{{ render(vars.file_id) }}"
+          inputFiles: "{{ outputs.unzip.files }}"
+          script: |
+            import os
+            import pandas as pd
+
+            file_id = os.environ["FILE_ID"]
+            file = f"JC-{file_id}.csv"
+
+            print(file)
+
+            df = pd.read_csv(file)
+            df.to_parquet(f"{file_id}.parquet")
+          outputFiles:
+            - "*.parquet"
+
+        - id: upload_parquet_to_gcs
+          type: io.kestra.plugin.gcp.gcs.Upload
+          disabled: true
+          from: "{{ render(outputs.parquet_output[parent.taskrun.value].outputFiles) }}"
+          to: "{{ render(vars.gcs_fullpath) }}"
+
+  - id: bq_citibike_table_ext
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE EXTERNAL TABLE `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_CITIBIKE_DATASET')}}.{{render(vars.bq_table)}}_ext`
+      (
+        ride_id STRING,
+        rideable_type STRING,
+        started_at TIMESTAMP,
+        ended_at TIMESTAMP,
+        start_station_name STRING,
+        start_station_id STRING,
+        end_station_name STRING,
+        end_station_id STRING,
+        start_lat FLOAT64,
+        start_lng FLOAT64,
+        end_lat FLOAT64,
+        end_lng FLOAT64,
+        member_casual STRING
+      )
+      OPTIONS (
+        format = 'csv',
+        uris = ['{{ render(vars.gcs_fullpath) }}/{{ render(vars.gcs_file) }}'],
+        skip_leading_rows = 1, 
+        ignore_unknown_values = TRUE
+      );
+
+  - id: bq_citibike_table_tmp
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE TABLE `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_CITIBIKE_DATASET')}}.{{render(vars.bq_table)}}` 
+      AS
+      SELECT
+        MD5(CONCAT(
+          COALESCE(CAST(ride_id AS STRING), ""),
+          COALESCE(CAST(started_at AS STRING), ""),
+          COALESCE(CAST(ended_at AS STRING), ""),
+          COALESCE(CAST(start_station_id AS STRING), ""),
+          COALESCE(CAST(end_station_id AS STRING), "")
+        )) AS unique_row_id,
+        "{{render(vars.gcs_file)}}" AS filename,
+        *
+      FROM `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_CITIBIKE_DATASET')}}.{{render(vars.bq_table)}}_ext`;
+
+  - id: bq_citibike_table
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE TABLE IF NOT EXISTS `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_CITIBIKE_DATASET')}}.{{kv('GCP_CITIBIKE_TABLE')}}`
+      (
+        unique_row_id BYTES,
+        filename STRING,
+        ride_id STRING,
+        rideable_type STRING,
+        started_at TIMESTAMP,
+        ended_at TIMESTAMP,
+        start_station_name STRING,
+        start_station_id STRING,
+        end_station_name STRING,
+        end_station_id STRING,
+        start_lat FLOAT64,
+        start_lng FLOAT64,
+        end_lat FLOAT64,
+        end_lng FLOAT64,
+        member_casual STRING
+      )
+      PARTITION BY DATE(started_at);
+    
+  - id: bq_citibike_merge
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      MERGE INTO `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_CITIBIKE_DATASET')}}.{{kv('GCP_CITIBIKE_TABLE')}}` tgt
+      USING `{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_CITIBIKE_DATASET')}}.{{render(vars.bq_table)}}` src
+      ON tgt.unique_row_id = src.unique_row_id
+      WHEN NOT MATCHED THEN
+        INSERT (unique_row_id, filename, ride_id, rideable_type, started_at, ended_at, start_station_name, start_station_id, end_station_name, end_station_id, start_lat, start_lng, end_lat, end_lng, member_casual)
+        VALUES (src.unique_row_id, src.filename, src.ride_id, src.rideable_type, src.started_at, src.ended_at, src.start_station_name, src.start_station_id, src.end_station_name, src.end_station_id, src.start_lat, src.start_lng, src.end_lat, src.end_lng, src.member_casual);
+
+
+pluginDefaults:
+- type: io.kestra.plugin.gcp
+  values:
+    serviceAccount: "{{kv('GCP_CREDS')}}"
+    projectId: "{{kv('GCP_PROJECT_ID')}}"
+    location: "{{kv('GCP_LOCATION')}}"
+    bucket: "{{kv('GCP_CITIBIKE_BUCKET')}}"
+    # bucket: "de-zoomcamp-project-455400-citibike-bucket/raw"
+
+triggers:
+- id: schedule
+  type: io.kestra.plugin.core.trigger.Schedule
+  cron: "0 9 1 * *"
