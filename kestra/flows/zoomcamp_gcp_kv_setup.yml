@@ -6,7 +6,7 @@ tasks:
     type: io.kestra.plugin.core.kv.Set
     key: GCP_PROJECT_ID
     kvType: STRING
-    value:  # TODO replace with your GCP credentioals
+    value:  # TODO replace with your GCP credentials
 
   - id: gcp_project_id
     type: io.kestra.plugin.core.kv.Set
@@ -20,14 +20,26 @@ tasks:
     kvType: STRING
     value: us-east5
 
-  - id: gcp_bucket_name
+  - id: gcp_divvy_bucket
     type: io.kestra.plugin.core.kv.Set
-    key: GCP_BUCKET_NAME
+    key: GCP_DIVVY_BUCKET
     kvType: STRING
     value:  de-zoomcamp-project-455400-divvy-bucket # TODO make sure it's globally unique!
 
-  - id: gcp_dataset
+  - id: gcp_divvy_dataset
     type: io.kestra.plugin.core.kv.Set
-    key: GCP_DATASET
+    key: GCP_DIVVY_DATASET
     kvType: STRING
     value: divvy_dataset
+
+  - id: gcp_citibike_bucket
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_DIVVY_BUCKET
+    kvType: STRING
+    value:  de-zoomcamp-project-455400-citibike-bucket # TODO make sure it's globally unique!
+
+  - id: gcp_citibike_dataset
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_DIVVY_DATASET
+    kvType: STRING
+    value: citibike_dataset
