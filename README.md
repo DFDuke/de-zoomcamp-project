@@ -34,7 +34,7 @@ Technologies:
 - Batch / Kestra
 - Kestra flows can be viewed in kestra/flows directory
 - Primary ingestion occurs in Kestra using triggered flows. Once for citibike and one for divvy. These flows download the ZIP archive, decompress it, load it to Google Cloud Storage, and then run a merge to get that data loaded into BigQuery. 
-- I later discovered the common General Bikeshare Feed Specification and learned there were additional JSON files available with station information and system regions. I tried including these in Kestra, but ultimately it proved to difficult complicated to ingest them that way. Those serparate JSON files were manually ingested with the shell scripts in the scripts directory. It was easier this way to leverage jq with the -r option to export these files to CSV to allow them to be ingested into Big Query. 
+- I later discovered the common General Bikeshare Feed Specification and learned there were additional JSON files available with station information and system regions. I tried including these in Kestra, but ultimately it proved to difficult complicated to ingest them that way. Those serparate JSON files were manually ingested with the shell scripts in the scripts directory. It was easier to leverage jq this way with the -r option to export these files to CSV to allow them to be ingested into Big Query. These csv files were used as seeds in the dbt transformations later.
 
 
 # Data Warehouse:
