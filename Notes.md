@@ -34,13 +34,18 @@ https://kestra.io/docs/installation
 # dbt
 
 ## Installation
-[pip install](https://docs.getdbt.com/docs/core/pip-install)
+[pip install instructions](https://docs.getdbt.com/docs/core/pip-install)
 
-[Docker Install](https://docs.getdbt.com/docs/core/docker-install)
+[Docker install instructions](https://docs.getdbt.com/docs/core/docker-install)
 
-```dbt init```
+```dbt init``` - Initialize dbt project
+
+```dbt debug``` - Validate dbt project
+
+```dbt build```
 
 docker pull ghcr.io/dbt-labs/dbt-bigquery:1.9.latest
 
-docker run --network=host --mount type=bind,source=$(pwd)/dbt/dbt_citibike,target=/usr/app --mount type=bind,source=$
+docker run --network=host --mount type=bind,source=$(pwd)/dbt/dbt_bike,target=/usr/app --mount type=bind,source=$
 (pwd)/dbt/profiles.yml,target=/root/.dbt/profiles.yml ghcr.io/dbt-labs/dbt-bigquery ls
+
