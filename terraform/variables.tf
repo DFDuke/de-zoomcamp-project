@@ -19,17 +19,26 @@ variable "location" {
   default     = "US"
 }
 
-variable "gcs_bucket_name" {
-  description = "My GCS Bucket Name"
-  default     = " de-zoomcamp-project-455400-divvy-bucket"
-}
-
 variable "gcs_storage_class" {
   description = "Bucket Storage Class"
   default     = "STANDARD"
 }
 
-variable "bq_dataset_name" {
-  description = "My BigQuery Dataset Name"
+variable "gcs_divvy_bucket" {
+  description = "Divvy GCS Bucket"
+  default     = " de-zoomcamp-project-455400-divvy-bucket"
+}
+variable "gcs_citibike_bucket" {
+  description = "Citibike GCS Bucket"
+  default     = " de-zoomcamp-project-455400-citibike-bucket"
+}
+
+variable "bq_divvy_dataset" {
+  description = "Divvy BigQuery Dataset"
   default     = "divvy_dataset"
+}
+
+variable "bq_citibike_dataset" {
+  description = "Citibike BigQuery Dataset"
+  default     = "citibike_dataset"
 }

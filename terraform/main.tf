@@ -16,8 +16,8 @@ provider "google" {
 }
 
 
-resource "google_storage_bucket" "demo-bucket" {
-  name          = var.gcs_bucket_name
+resource "google_storage_bucket" "divvy-bucket" {
+  name          = var.gcs_divvy_bucket
   location      = var.location
   force_destroy = true
 
@@ -40,7 +40,36 @@ resource "google_storage_bucket" "demo-bucket" {
   }
 }
 
-resource "google_bigquery_dataset" "demo_dataset" {
-  dataset_id = var.bq_dataset_name
+resource "google_storage_bucket" "citibike-bucket" {
+  name          = var.gcs_citibike_bucket
+  location      = var.location
+  force_destroy = true
+
+  lifecycle_rule {
+    condition {
+      age = 3
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  lifecycle_rule {
+    condition {
+      age = 1
+    }
+    action {
+      type = "AbortIncompleteMultipartUpload"
+    }
+  }
+}
+
+resource "google_bigquery_dataset" "divvy_dataset" {
+  dataset_id = var.bq_divvy_dataset
+  location   = var.location
+}
+
+resource "google_bigquery_dataset" "citibike_dataset" {
+  dataset_id = var.bq_citibike_dataset
   location   = var.location
 }
