@@ -1,4 +1,4 @@
-region_id, station_id, capacity, name, short_name, lon, lat, rental_uris.android, rental_uris.ios
+region_id, station_id, capacity, name, short_name, lon, lat, android_rental_uri, ios_rental_uri
 "71","1795146692060860976",24,"Longfellow Ave & Aldus St","7983.02",-73.88762910982096,40.82319448542357,"https://bkn.lft.to/lastmile_qr_scan","https://bkn.lft.to/lastmile_qr_scan"
 "71","ef6216aa-d3c8-46bb-8c6b-b62f8ba51b16",23,"Van Sinderen Ave & Truxton St","4161.01",-73.90369,40.6786,"https://bkn.lft.to/lastmile_qr_scan","https://bkn.lft.to/lastmile_qr_scan"
 "71","b371c432-b682-412f-9b85-8df84ce7a9f3",21,"St Nicholas Ave & W 137 St","7898.03",-73.947568,40.818477,"https://bkn.lft.to/lastmile_qr_scan","https://bkn.lft.to/lastmile_qr_scan"

@@ -1,4 +1,4 @@
-region_id, station_id, capacity, name, short_name, lon, lat, rental_uris.android, rental_uris.ios
+region_id, station_id, capacity, name, short_name, lon, lat, android_rental_uri, ios_rental_uri
 ,"2010820263334840794",11,"Panama Ave & Grace St","21394",-87.82925,41.94766,"https://chi.lft.to/lastmile_qr_scan","https://chi.lft.to/lastmile_qr_scan"
 ,"1934289130932983934",15,"Hoyne Ave & 34th St","21337",-87.6778387,41.8320245,"https://chi.lft.to/lastmile_qr_scan","https://chi.lft.to/lastmile_qr_scan"
 ,"1970688521031469268",15,"Martin Luther King Dr & 87th St","24379",-87.61439,41.73677,"https://chi.lft.to/lastmile_qr_scan","https://chi.lft.to/lastmile_qr_scan"
