@@ -1,0 +1,70 @@
+id: full_load_citibike
+namespace: zoomcamp
+
+variables:
+  gcs_fullpath: "gs://{{ kv('GCP_CITIBIKE_BUCKET') }}"
+  # gcs_fullpath: "gs://de-zoomcamp-project-455400-citibike-bucket/raw"
+
+tasks:
+    # DOWNLOAD FILE
+  - id: get_system_regions_json
+    type: io.kestra.plugin.core.http.Download
+    # uri: https://gbfs.lyft.com/gbfs/2.3/bkn/en/station_information.json
+    uri: https://gbfs.lyft.com/gbfs/2.3/bkn/en/system_regions.json
+
+  - id: write
+    type: io.kestra.plugin.core.storage.Write
+    content: |
+      region_id, name
+      {{ read(outputs.get_system_regions_json.uri) | jq('.data.regions[] | [.region_id, .name]') | raw }} 
+    extension: .csv
+
+  - id: cat
+    type: io.kestra.plugin.scripts.shell.Commands        
+    disabled: true
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    outputFiles:
+      - 'system_regions.csv'
+    commands:
+      - echo "Hello World!"
+      - wget -q https://gbfs.lyft.com/gbfs/2.3/bkn/en/system_regions.json
+      # - cat system_regions.json | jq -r '.data.regions[] | [.region_id, .name] | @csv' > citibike-system_regions.csv > system_regions.csv
+      - cat system_regions.json | jq -r '.data.regions[] | [.region_id, .name] | @csv' > citibike-system_regions.csv > system_regions.csv
+
+
+  - id: get_csv
+    description: "String Transformation"
+    type: io.kestra.plugin.transform.jsonata.TransformItems
+    disabled: true
+    # from: "{{ outputs.get_station_info_json.uri }}"
+    from: "{{ read(outputs.get_system_regions_json.uri) | jq('.data.regions[] | [.region_id, .name]') }}"
+    # expression: data.stations.("'" & region_id & "', '" & station_id & "', '" & capacity & "', '" & name & "', '" & short_name & "'")
+    expression: |
+      $join(
+      $map(
+        data.stations,
+        function($v, $i) {
+          $join([$v.region_id, $v.station_id, $v.capacity], ",")
+        }
+      ),
+      "\n"
+      )
+  
+  - id: upload_csv_to_gcs
+    type: io.kestra.plugin.gcp.gcs.Upload
+    disabled: true
+    # from: "{{ outputs.get_csv.uri }}"
+    from: "{{ read(outputs.get_system_regions_json.uri) | jq('.data.regions[] | [.region_id, .name]') }}"
+    to: "{{ render(vars.gcs_fullpath) }}/citibike-system_regions.csv"
+    # from: "{{ outputs.get_station_info_json.uri }}"
+    
+    # to: "{{ render(vars.gcs_fullpath) }}/citibike-station_information2.json"
+
+pluginDefaults:
+- type: io.kestra.plugin.gcp
+  values:
+    serviceAccount: "{{kv('GCP_CREDS')}}"
+    projectId: "{{kv('GCP_PROJECT_ID')}}"
+    location: "{{kv('GCP_LOCATION')}}"
+    bucket: "{{kv('GCP_CITIBIKE_BUCKET')}}"
