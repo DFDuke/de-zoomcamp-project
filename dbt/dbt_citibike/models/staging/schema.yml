@@ -1,9 +1,0 @@
-version: 2
-
-sources:
-  - name: staging
-    database: de-zoomcamp-project-455400
-    schema: citibike_dataset
-    
-    tables:
-      - name: citibike_tripdata

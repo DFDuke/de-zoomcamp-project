@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: raw_citibike
+    database: de-zoomcamp-project-455400
+    schema: citibike_dataset
+    
+    tables:
+      - name: citibike_tripdata
+
+  - name: raw_divvy
+    database: de-zoomcamp-project-455400
+    schema: divvy_dataset
+    
+    tables:
+      - name: divvy_tripdata

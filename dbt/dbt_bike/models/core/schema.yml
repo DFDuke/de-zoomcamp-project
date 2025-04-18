@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: dim_stations
+  
+  - name: dim_regions
+
+  - name: fact_tripsdata
