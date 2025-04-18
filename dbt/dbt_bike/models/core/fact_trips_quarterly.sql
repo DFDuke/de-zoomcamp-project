@@ -15,6 +15,7 @@ with trips_data as
 SELECT
     curr_yr.year,
     curr_yr.quarter,
+    curr_yr.year_quarter,
     curr_yr.source,
     curr_yr.trip_count as trip_count_curr_yr,
     prev_yr.trip_count as trip_count_prev_yr,
